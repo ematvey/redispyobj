@@ -29,7 +29,7 @@ class RedisDict(object):  # move to ABC mapping
 
     def keys(self):
         keys = []
-        for k in self.r.keys(self._path + '*'):
+        for k in self.r.keys(self._path + '*'):  # replace with field/SET caching
             m = self.re_keys.match(k)
             if not m is None:
                 keys.append(m.groupdict()['key'])
