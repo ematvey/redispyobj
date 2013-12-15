@@ -3,7 +3,6 @@ RedisPyObj
 
 Python-redis proxy read/write objects: dict, list, set.
 
-TODO
-----
+TODO:
 * package, setup.py
 * auto serialization
