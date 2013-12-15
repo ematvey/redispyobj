@@ -1,0 +1,2 @@
+class RedisSet(object):
+    pass

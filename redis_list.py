@@ -2,7 +2,7 @@ class RedisList(object):
     def __init__(self, redis, key):
         if redis.exists(key):
             if redis.type(key) != 'list':
-                raise Exception
+                redis.delete(key)
         self.r = redis
         self.key = key
 
@@ -12,11 +12,18 @@ class RedisList(object):
     def extend(self, values):
         self.r.rpush(self.key, *values)
 
+    def __repr__(self):
+        return "RedisList(addr: '%s', length: %s)" % (self.key, len(self))
+
     def __getitem__(self, indexer):
         if isinstance(indexer, slice):
-            if indexer.step is None:
-                raise Exception
-            return self.r.lrange(self.key, indexer.start, indexer.stop)
+            if not indexer.step is None:
+                raise NotImplementedError
+            start = indexer.start
+            stop = indexer.stop
+            if stop < 0:
+                stop = len(self) + stop
+            return self.r.lrange(self.key, start, stop)
         return self.r.lindex(self.key, indexer)
 
     def __setitem__(self, index, value):
@@ -24,13 +31,12 @@ class RedisList(object):
             raise Exception
         self.r.lset(self.key, index, value)
 
-    def __delitem__(self, index):
-        if not isinstance(index, int):
-            raise Exception
-        self.r.lrem(self.key, index)
+    def remove(self, value, count=0):
+        self.r.lrem(self.key, value, 0)
 
     def __iadd__(self, values):
         self.extend(values)
+        return self
 
     def __len__(self):
         return self.r.llen(self.key)
