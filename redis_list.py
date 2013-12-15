@@ -1,13 +1,16 @@
 class RedisList(object):
     def __init__(self, redis, key):
         if redis.exists(key):
-
-            raise Exception
+            if redis.type(key) != 'list':
+                raise Exception
         self.r = redis
         self.key = key
 
     def append(self, value):
-        self.__iadd__(value)
+        self.r.rpush(self.key, value)
+
+    def extend(self, values):
+        self.r.rpush(self.key, *values)
 
     def __getitem__(self, indexer):
         if isinstance(indexer, slice):
@@ -26,5 +29,11 @@ class RedisList(object):
             raise Exception
         self.r.lrem(self.key, index)
 
-    def __iadd__(self, value):
-        self.r.lpush(self.key, value)
+    def __iadd__(self, values):
+        self.extend(values)
+
+    def __len__(self):
+        return self.r.llen(self.key)
+
+    def __contains__(self, value):
+        raise NotImplemented('RedisList does not support this')
