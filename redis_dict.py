@@ -1,14 +1,18 @@
 import re
 
 from redis_list import RedisList
+# from redis_list import RedisSet
 
 
 class RedisDict(object):  # move to ABC mapping
 
     _repr_sep = '.'  # separator to use when repr-ing
     _allowed_key_chars = 'a-zA-Z0-9_'
-    _re_path_template = (r'^{root}{sep}(?P<key>[{key_chars}]+)({sep}(?P<tail>[{key_chars}{sep}]+))?')
-    _keyset_field = '<dictkeyset>'
+    _re_path_template = (
+        r'^{root}{sep}(?P<key>[{key_chars}]+)({sep}(?P<tail>[{key_chars}{sep}]+))?'
+    )
+    _dict_marker = '[dictroot]'
+    _keyset_field = '[keys]'
 
     def __init__(self, redis, root_key, separator='.'):
         if separator in self._allowed_key_chars:
@@ -20,10 +24,18 @@ class RedisDict(object):  # move to ABC mapping
         self.sep = separator
         self._path = self.root_key + self.sep
         self._keyset_key = self._path + self._keyset_field
+        self._marker_key = self._path + self._dict_marker
         # if not self.r.exists(self._keyset_key):
         #     pass  # add set init?
-        if self.r.exists(self._keyset_key) and self.r.type(self._keyset_key) != 'set':
-            raise RedisDictTypeError('Keyset field is of wrong type')
+        if self.r.get(self.root_key) == self._dict_marker:
+            keyset_type = self.r.type(self._keyset_key)
+            if keyset_type == 'none':
+                raise RedisDictInitializationError('Dict marker present but no keyset')
+            elif keyset_type != 'set':
+                raise RedisDictTypeError('Keyset field is of wrong type')
+        else:
+            self.r.set(self._marker_key, self._dict_marker)
+
         self._re_path = self._re_path_template.format(
             root=self.root_key,
             sep=self.sep,
@@ -60,7 +72,8 @@ class RedisDict(object):  # move to ABC mapping
         if not key in self.keys():
             raise RedisDictKeyError
         path = self._path + key
-        assert self.r.exists(path)
+        #print path
+        #assert self.r.exists(path)
         if self.r.exists(path + self.sep + self._keyset_field):
             return RedisDict(self.r, path, self.sep)
         if self.r.type(path) == 'list':
@@ -97,6 +110,10 @@ class RedisDict(object):  # move to ABC mapping
 
     def __len__(self):
         return self.r.scard(self.root_key)
+
+
+class RedisDictInitializationError(TypeError):
+    pass
 
 
 class RedisDictTypeError(TypeError):
